@@ -1,2 +1,2 @@
-# thin-edge-mqtt
-Python MQTT Helper for thinEdge.io
+# mqtt-helper
+Python MQTT Helper. Easily manage mqtt connections with paho.

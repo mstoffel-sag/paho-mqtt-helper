@@ -3,11 +3,12 @@ import unittest
 from  paho_mqtt_helper import mqtt_helper
 import logging
 import time
+import sys
 
 
 
 class TestMQTTConnection(unittest.TestCase):
-
+    broker_host = 'localhost'
     def setUp(self):
 
         logging.basicConfig(level=logging.INFO,format='%(asctime)s %(name)s %(message)s')
@@ -15,7 +16,8 @@ class TestMQTTConnection(unittest.TestCase):
         self.topic = 'my_topic'
         self.message = 'my_message'
         self.received_message =  ''
-        self.mqtth = mqtt_helper.MQTTHelper('my_client_id','localhost',1883,self.topic)
+        self.logger.info("")
+        self.mqtth = mqtt_helper.MQTTHelper('my_client_id',self.broker_host,1883,self.topic)
         self.logger.info('Connectint to the broker')
         self.mqtth.connect(self.on_message)
 
@@ -33,4 +35,8 @@ class TestMQTTConnection(unittest.TestCase):
 
 
 if __name__ == '__main__':
+   
+    if len(sys.argv) == 2:
+        TestMQTTConnection.broker_host = sys.argv[1]
+        del sys.argv[1:]
     unittest.main()

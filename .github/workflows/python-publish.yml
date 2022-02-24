@@ -47,7 +47,7 @@ jobs:
         pip install flake8
     - name: Run tests
       run: |
-        python -m  test.test_mqtt_helper mqtt
+        python -m  test.test_mqtt_helper
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

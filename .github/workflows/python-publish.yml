@@ -28,6 +28,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Start Mosquitto
+      uses: namoshek/mosquitto-github-action@v1
+      with:
+        version: '1.6'
+        ports: '1883:1883 8883:8883'
+        container-name: 'mqtt'
     - uses: actions/checkout@v2
     - name: Set up Python
       uses: actions/setup-python@v2

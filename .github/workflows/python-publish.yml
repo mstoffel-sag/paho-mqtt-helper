@@ -25,16 +25,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Start Mosquitto
-      uses: namoshek/mosquitto-github-action@v1
-      with:
-        version: '1.6'
-        ports: '1883:1883'
-        config: >
-          allow_anonymous true
-          listener 1883
-          
     - uses: actions/checkout@v2
+    
+    - name: Setup Mosquitto
+      run: |
+        docker run -d \
+          --name mosquitto \
+          -p 1883:1883 \
+          eclipse-mosquitto:1.6 \
+          mosquitto -c /mosquitto/config/mosquitto.conf -v
+        
+        # Wait for Mosquitto to start
+        sleep 5
     
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -47,10 +49,6 @@ jobs:
         pip install build
         pip install -r requirements.txt
         pip install flake8
-        
-    - name: Wait for Mosquitto
-      run: |
-        sleep 5
         
     - name: Run tests
       run: |

@@ -31,9 +31,11 @@ jobs:
         version: '1.6'
         ports: '1883:1883'
         container-name: 'mqtt'
-        config: | 
-          listener 1883
+        config: |
           allow_anonymous true
+          log_dest stdout
+          log_type all
+          listener 1883 0.0.0.0
           
     - uses: actions/checkout@v2
     

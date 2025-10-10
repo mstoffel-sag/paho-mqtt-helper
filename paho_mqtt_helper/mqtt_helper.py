@@ -9,21 +9,35 @@ import time
 
 class MQTTHelper(object):
  
-    def __init__(self,clientId, mqtthost,mqttport,topics):
+    def __init__(self, clientId, mqtthost, mqttport, topics, ca_certs=None, certfile=None, keyfile=None, tls_insecure=False):
         '''
         Initialize vars
+    
+        Args:
+            clientId (str): The MQTT client ID
+            mqtthost (str): MQTT broker hostname
+            mqttport (int): MQTT broker port
+            topics (str): Comma-separated list of topics to subscribe
+            ca_certs (str): Path to the Certificate Authority certificate file
+            certfile (str): Path to the client certificate file
+            keyfile (str): Path to the client private key file
+            tls_insecure (bool): Set to True to skip certificate verification
         '''
-        self.topics= topics
+        self.topics = topics
         self.refresh_token_interval = 120
         self.clientId = clientId
         self.ackpub = -1
         self.lastpub = -1
         self.connected = -1
-        self.topic_ack=[]
+        self.topic_ack = []
         self.mqtthost = mqtthost
         self.mqttport = mqttport
         self.initialized = True
-        self.logger=logging.getLogger(__name__)
+        self.ca_certs = ca_certs
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.tls_insecure = tls_insecure
+        self.logger = logging.getLogger(__name__)
 
     def on_connect(self,client, userdata, flags, rc):
         self.logger.info("on_connect result: " + str(rc))
@@ -41,13 +55,48 @@ class MQTTHelper(object):
             wcount+=1
         return False
 
-    def publish(self,topic,payload,qos=1):
-        ret=self.client.publish(topic,payload,qos)
-        self.logger.debug('publish ret:' + str(ret))
-        return ret
+    def publish(self, topic, payload, qos=1, timeout=5):
+        """
+        Publish a message to the broker
+    
+        Args:
+            topic (str): The topic to publish to
+            payload: The message payload
+            qos (int): Quality of Service (0 or 1)
+            timeout (int): Maximum time to wait for PUBACK in seconds
+        
+        Returns:
+            tuple: (rc, mid) for QoS 0 or True/False for QoS 1 indicating successful delivery
+        """
+        if qos not in [0, 1]:
+            raise ValueError("QoS must be 0 or 1")
 
-    def on_publish(self,client, obj, mid):
-        self.logger.debug("publish: " + str(mid))
+        # Store the current ack state
+        self.ackpub = -1
+    
+        # Publish the message
+        ret = self.client.publish(topic, payload, qos)
+        self.logger.debug(f'publish ret: {str(ret)}')
+    
+        if qos == 0:
+            return ret
+    
+        # For QoS 1, wait for the PUBACK
+        if qos == 1:
+            message_id = ret[1]
+            start_time = time.time()
+        
+            while time.time() - start_time < timeout:
+                if self.ackpub == message_id:
+                    self.logger.debug(f'Received PUBACK for message {message_id}')
+                    return True
+                time.sleep(0.1)
+        
+            self.logger.warning(f'Timeout waiting for PUBACK of message {message_id}')
+            return False
+
+    def on_publish(self, client, obj, mid):
+        self.logger.debug(f"Received PUBACK for message ID: {mid}")
         self.ackpub = mid
 
     def subscribe_topics(self,topics,qos=0):
@@ -88,21 +137,36 @@ class MQTTHelper(object):
     def on_disconnect(self,client, userdata, rc):
         self.logger.error("on_disconnect rc: " +str(rc))
       
-    def connect(self,on_message):
-        self.connected=-1
+    def connect(self, on_message):
+        self.connected = -1
         ''' Will connect to the mqtt broker
-            
+        
             Keyword Arguments:
             on_message -- has to be a method that will be called for new messages distributed to a subscribed topic
-            topics -- a list of topics strings like s/ds to subscribe to
-        
-        ''' 
+        '''
         if self.initialized == False:
             self.logger.error('Not initialized, please call bootstrap() of edit c8y.properties file. Alternatively you can use cert auth.')
             return
 
-        self.client = mqtt.Client(client_id=self.clientId,clean_session=False)
+        self.client = mqtt.Client(client_id=self.clientId, clean_session=False)
         
+        # Configure TLS if certificates are provided
+        try:
+            if self.certfile and self.keyfile:
+                self.client.tls_set(
+                    ca_certs=self.ca_certs,  # Can be None
+                    certfile=self.certfile,
+                    keyfile=self.keyfile,
+                    cert_reqs=mqtt.ssl.CERT_NONE if self.tls_insecure else mqtt.ssl.CERT_REQUIRED,
+                    tls_version=mqtt.ssl.PROTOCOL_TLS,
+                )
+                if self.tls_insecure:
+                    self.client.tls_insecure_set(True)
+                self.logger.info('TLS/SSL configuration successful')
+        except Exception as e:
+            self.logger.error(f'Error configuring TLS: {str(e)}')
+            return -1
+
         self.client.on_message = on_message
         self.client.on_publish = self.on_publish
         self.client.on_connect = self.on_connect
@@ -139,11 +203,11 @@ class MQTTHelper(object):
         self.client.loop_stop()
         self.connected=False
 
-    
 
 
 
 
-        
-        
-        
+
+
+
+

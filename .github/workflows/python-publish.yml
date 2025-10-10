@@ -11,7 +11,6 @@ name: Upload Python Package
 on:
   release:
     types: [published]
-
   workflow_dispatch:
     inputs:
       logLevel:
@@ -21,10 +20,8 @@ on:
       tags:
         description: 'Test build tags' 
 
-
 jobs:
   deploy:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -32,30 +29,45 @@ jobs:
       uses: namoshek/mosquitto-github-action@v1
       with:
         version: '1.6'
-        ports: '1883:1883 8883:8883'
+        ports: '1883:1883'
         container-name: 'mqtt'
+        config: | 
+          listener 1883
+          allow_anonymous true
+          
     - uses: actions/checkout@v2
+    
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.7'
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build
         pip install -r requirements.txt
         pip install flake8
+        
+    - name: Wait for Mosquitto
+      run: |
+        # Wait for mosquitto to be ready
+        sleep 5
+        
     - name: Run tests
       run: |
-        python -m  test.test_mqtt_helper
+        python -m test.test_mqtt_helper localhost
+        
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings.
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
     - name: Build package
       run: python -m build
+      
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:
